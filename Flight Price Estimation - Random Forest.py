@@ -13,44 +13,77 @@ import warnings
 import math
 
 
+
 """### DATA EXPLORATION"""
 
-df = pd.read_csv('Clean_Dataset.csv')
+from google.colab import drive
+drive.mount('/content/drive')
+
+df = pd.read_csv('/content/drive/MyDrive/Dataset/Clean_Dataset.csv', usecols=lambda column: column != 'Unnamed: 0')
 df
 
+
 # Exploring and Summarizing Data Distributions
-df.airline.value_counts()
-df.source_city.value_counts()
-df.destination_city.value_counts()
-df.departure_time.value_counts()
-df.arrival_time.value_counts()
-df.stops.value_counts()
-df['class'].value_counts()
-df['duration'].min()
-df['duration'].max()
-df['duration'].median()
+df.info()
+df.isnull().sum()
+print(round(df.describe()),2)
+
+
+# Visualizing the Distribution of Prices with a Boxplot
+plt.figure(figsize=(8,5))
+fig = sns.boxplot(data=df['price'],palette="flare")
+fig.set_title('Price')
+
+df['price'].min()
+
 
 
 """### PREPROCESSING DATA"""
 
-# Dropping Unnecessary Columns (Unnamed: 0 and flight)
-df = df.drop(['Unnamed: 0', 'flight'], axis = 1)
+#Creating a Copy of the Original DataFrame
+df_raw = df.copy()
 
-# Converting 'class' Feature to Binary
+
+# Converting 'class' Feature to Binary : Economy (0) Business (1)
 df['class'] = df['class'].map({'Economy': 0, 'Business': 1})
+
 
 # Converting Categorical 'stops' Feature to Numerical
 df['stops'] = pd.factorize(df['stops'])[0]
 
-# One-Hot Encoding of Categorical Features
-df = df.join(pd.get_dummies(df.airline, prefix='airline', dtype=int)).drop('airline', axis=1)
-df = df.join(pd.get_dummies(df.source_city, prefix='source', dtype=int)).drop('source_city', axis=1)
-df = df.join(pd.get_dummies(df.destination_city, prefix='destination', dtype=int)).drop('destination_city', axis=1)
-df = df.join(pd.get_dummies(df.arrival_time, prefix='arrival', dtype=int)).drop('arrival_time', axis=1)
-df = df.join(pd.get_dummies(df.departure_time, prefix='departure', dtype=int)).drop('departure_time', axis=1)
+
+# Label Encoding Categorical Features
+from sklearn.preprocessing import LabelEncoder
+label_encoders = {}
+
+categorical_cols = ['airline', 'flight', 'source_city', 'departure_time',
+                    'arrival_time', 'destination_city']
+
+for col in categorical_cols:
+    le = LabelEncoder()
+    df[col] = le.fit_transform(df[col])
+    label_encoders[col] = le
 
 df
+
+
+# One hot encode
+#df = df.join(pd.get_dummies(df.airline, prefix='airline', dtype=int)).drop('airline', axis=1)
+#df = df.join(pd.get_dummies(df.source_city, prefix='source', dtype=int)).drop('source_city', axis=1)
+#df = df.join(pd.get_dummies(df.destination_city, prefix='destination', dtype=int)).drop('destination_city', axis=1)
+#df = df.join(pd.get_dummies(df.arrival_time, prefix='arrival', dtype=int)).drop('arrival_time', axis=1)
+#df = df.join(pd.get_dummies(df.departure_time, prefix='departure', dtype=int)).drop('departure_time', axis=1)
+
+
 df.info()
+
+
+# DataFrame Correlation Matrix Heatmap
+plt.figure(figsize=(10,8))
+sns.heatmap(df.corr(), annot=True, cmap=plt.cm.Reds)
+plt.title('Correlation Matrix')
+plt.show()
+
 
 
 """### TRAINING REGRESSION MODEL"""
@@ -61,49 +94,90 @@ from sklearn.ensemble import RandomForestRegressor
 
 X, y = df.drop('price', axis=1), df['price']
 
+
 # Splitting Data into Training and Testing Sets (20% testing and 80% training)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
 
 # Data Modeling
 reg = RandomForestRegressor(n_jobs=-1)
 reg.fit(X_train, y_train)
 
 
+
 """### EVALUATING DATA"""
 
-# R2
-reg.score(X_test, y_test)
-
-#Generating Predictions with the Regression Model
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+# Making Predictions with the Regression Model on Test Data
 y_pred = reg.predict(X_test)
 
-# Regression Model Performance Metrics
-print('MAE:', mean_absolute_error(y_test, y_pred))
-print('MSE:', mean_squared_error(y_test, y_pred))
-print('RMSE:', np.sqrt(mean_squared_error(y_test, y_pred)))
-print('R2:', r2_score(y_test, y_pred))
 
-#Scatter Plot of Actual vs Predicted Values
-plt.scatter(y_test, y_pred)
-plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'k--', lw=2)
-plt.xlabel('Actual')
-plt.ylabel('Predicted')
-plt.title('Actual vs Predicted')
+# Calculating and Displaying Regression Model Performance Metrics
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+mae = mean_absolute_error(y_test, y_pred)
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+
+def mean_absolute_percentage_error(y_true, y_pred):
+    nonzero = y_true != 0
+    return np.mean(np.abs((y_true[nonzero] - y_pred[nonzero]) / y_true[nonzero])) * 100
+
+mape = mean_absolute_percentage_error(y_test, y_pred)
+
+print(f'MAE: {mae:.2f}')
+print(f'MSE: {mse:.2f}')
+print(f'R-squared: {r2:.2f}')
+print(f'MAPE: {mape:.2f}%')
+
+
+# Creating a DataFrame for Actual vs. Predicted Prices and Errors
+comparison_df = pd.DataFrame({
+    'Actual_Price': y_test,
+    'Predicted_Price': y_pred,
+    'Absolute_Error': np.abs(y_test - y_pred),
+})
+
+comparison_df
+
+
+# Calculating and Displaying Minimum and Maximum Absolute Errors
+min_abs = comparison_df['Absolute_Error'].min()
+max_abs = comparison_df['Absolute_Error'].max()
+
+print(f'Min Absolute Error: {min_abs:.2f}')
+print(f'Max Absolute Error: {max_abs:.2f}')
+
+
+# Visualizing the Distribution of Absolute Errors
+plt.figure(figsize=(10, 6))
+sns.histplot(comparison_df['Absolute Error'], bins=30, kde=True)
+plt.xlabel('Absolute Error')
+plt.ylabel('Frequency')
+plt.title('Distribution of Absolute Errors')
 plt.show()
 
-df.price.describe()
 
-# Identifying and Sorting Feature Importances
-importances = dict(zip(reg.feature_names_in_, reg.feature_importances_))
-sorted_importances = dict(sorted(importances.items(), key=lambda x: x[1], reverse=True))
+# Scatter Plot of Actual vs. Predicted Prices
+plt.figure(figsize=(10, 6))
+sns.scatterplot(x=y_test, y=y_pred)
+plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--')
+plt.xlabel('Actual Prices')
+plt.ylabel('Predicted Prices')
+plt.title('Actual vs Predicted Prices')
+plt.show()
 
-sorted_importances
 
-# Visualizing Top 10 Feature Importances
-plt.figure(figsize = (10,6))
-top_importances = sorted_importances[:10]
-plt.bar([x[0] for x in sorted_importances], [x[1] for x in sorted_importances])
-plt.xticks(rotation=90)
+# Bar Plot of Feature Importances from the Regression Model
+importances = reg.feature_importances_
+features = X.columns
+
+feature_importance_df = pd.DataFrame({
+    'Feature': features,
+    'Importance': importances
+}).sort_values(by='Importance', ascending=False)
+
+plt.figure(figsize=(12, 8))
+sns.barplot(x='Importance', y='Feature', data=feature_importance_df)
+plt.title('Feature Importance')
 plt.show()
 
