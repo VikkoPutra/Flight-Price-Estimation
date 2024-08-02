@@ -40,7 +40,7 @@ df['price'].min()
 
 """### PREPROCESSING DATA"""
 
-#Creating a Copy of the Original DataFrame
+# Creating a Copy of the Original DataFrame
 df_raw = df.copy()
 
 
