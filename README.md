@@ -40,18 +40,6 @@ The model identifies which factors most strongly influence pricing decisions, pr
 • Comprehensive evaluation metrics provide robust model validation
 • Visual analysis (scatter plots, histograms) supports model interpretation
 
-## 🚀 Getting Started
-
-```python
-# Clone and explore the dataset
-df = pd.read_csv('https://raw.githubusercontent.com/VikkoPutra/Flight-Price-Estimation/refs/heads/main/Clean_Dataset.csv')
-
-# Key preprocessing steps
-from sklearn.preprocessing import LabelEncoder
-from sklearn.ensemble import RandomForestRegressor
-
-# Train your own model following the notebook structure
-```
 
 ## 📊 Project Structure
 
